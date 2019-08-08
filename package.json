@@ -1,0 +1,24 @@
+{
+  "name": "supernova",
+  "version": "1.0.0",
+  "description": "explodes",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhhussain/supernova.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mhhussain/supernova/issues"
+  },
+  "homepage": "https://github.com/mhhussain/supernova#readme",
+  "dependencies": {
+    "axios": "^0.19.0",
+    "express": "^4.17.1"
+  }
+}
