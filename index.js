@@ -14,10 +14,10 @@ let health = {
 var qlock = 0;
 let q = [];
 
-// pingmap
-let pingmap = {};
-let pingout = 0;
-let pingin = 0;
+// particlemap
+let particlemap = {};
+let ptout = 0;
+let ptin = 0;
 
 // create consumer
 setInterval(() => {
@@ -41,7 +41,7 @@ setInterval(() => {
     // process q items
     if (qe.length > 0) {
         for (var i = qe.shift(); i != undefined; i = qe.shift()) {
-            axios.post(i.to, { letter: i.letter })
+            axios.post(i.to, { particle: i.particle })
                 .catch((err) => {
                     // need to log this
                     console.log('letter failed to send');
@@ -62,12 +62,12 @@ app.get('/health', (req, res) => {
     res.json(health);
 });
 
-app.get('/status/pingin', (req, res) => {
-    res.json(pingin);
+app.get('/status/ptin', (req, res) => {
+    res.json(ptin);
 });
 
-app.get('/status/pingout', (req, res) => {
-    res.json(pingout);
+app.get('/status/ptout', (req, res) => {
+    res.json(ptout);
 });
 
 app.get('/status/q', (req, res) => {
@@ -76,47 +76,44 @@ app.get('/status/q', (req, res) => {
 
 app.get('/status/cid/:correlationId', (req, res) => {
     let { correlationId } = req.params;
-    res.json(pingmap[correlationId]);
+    res.json(particlemap[correlationId]);
 });
 
-app.get('/pingmap', (req, res) => {
-    res.json(pingmap);
+app.get('/particlemap', (req, res) => {
+    res.json(particlemap);
 });
 
 // entry point
-app.post('/pingmap/add', (req, res) => {
+app.post('/particlemap/add', (req, res) => {
     let { particleInfo } = req.body;
     if (!particleInfo) {
         res.status(400).send(new Error('contract missing: [particleInfo]'));
         return;
     }
 
-console.log(particleInfo);
-
-    pingmap[particleInfo.correlationId] = {
+    particlemap[particleInfo.correlationId] = {
         endpoint: particleInfo.endpoint,
         bouncec: 0,
-        pongc: 0,
-        pingrepeater: particleInfo.pingrepeater
+        ptc: 0,
+        particlerepeater: particleInfo.particlerepeater
     };
 
     var success = true;
 
     axios.post(particleInfo.endpoint, {
-        letter: {
+        particle: {
             correlationId: particleInfo.correlationId,
-            back: configs.pongurl
+            back: configs.novaurl
         }
     }).catch((err) => {
-        console.log('jfeijfeoieifefie');
-        pingmap[particleInfo] = null;
+        particlemap[particleInfo] = null;
         success = false;
         return;
     }).finally(() => {
         if (success) {
-            res.send('ping created');
+            res.send('particle fired');
         } else {
-            res.status(400).send(new Error('failed to create ping'));
+            res.status(400).send(new Error('failed to create particle'));
         }
         return;
     });
@@ -129,55 +126,55 @@ app.post('/pong', (req, res) => {
         return;
     }
 
-    let { letter } = req.body;
-    if (!letter) {
-        res.send('missing particle object');
+    let { particle } = req.body;
+    if (!particle) {
+        res.send('missing particle');
         return;
     }
 
-    let cid = letter.correlationId;
+    let cid = particle.correlationId;
 
-    // ping counter
-    pingin++;
+    // particle counter
+    ptin++;
 
-    // update pingmap
-    pingmap[cid].bouncec++;
-    pingmap[cid].pongc++;
+    // update particlemap
+    particlemap[cid].bouncec++;
+    particlemap[cid].ptc++;
 
-    // if ping is a fault
-    if (letter.fault) {
+    // if particle is a fault
+    if (particle.fault) {
         res.send(`particle recieved [${cid}]`);
         return;
     }
 
-    // create pong response
-    let pingconfig = pingmap[cid];
+    // create particle response
+    let particleconfig = particlemap[cid];
 
-    if (!pingconfig) {
-        res.status(400).send(new Error(`no pingmap for [${cid}]`));
+    if (!particleconfig) {
+        res.status(400).send(new Error(`no particlemap for [${cid}]`));
         return;
     }
 
-    let pingreturns = [];
+    let particlereturns = [];
 
-    if (pingconfig.pingrepeater) {
-        for (var i = 0; i < pingconfig.pingrepeater; i++) {
-            pingreturns.push({
-                to: pingconfig.endpoint,
-                "letter": {
+    if (particleconfig.particlerepeater) {
+        for (var i = 0; i < particleconfig.particlerepeater; i++) {
+            particlereturns.push({
+                to: particleconfig.endpoint,
+                "particle": {
                     correlationId: cid,
-                    back: configs.pongurl,
+                    back: configs.novaurl,
                     fault: true
                 }
             });
         }
     }
 
-    pingreturns.push({
-        to: pingconfig.endpoint,
-        "letter": {
+    particlereturns.push({
+        to: particleconfig.endpoint,
+        "particle": {
             correlationId: cid,
-            back: configs.pongurl,
+            back: configs.novaurl,
             fault: false
         }
     });
@@ -189,15 +186,16 @@ app.post('/pong', (req, res) => {
             break;
         }
     }
-    q = q.concat(pingreturns);
+    q = q.concat(particlereturns);
     // release lock
     qlock--;
 
-    pingmap[cid].pingc += pingconfig.pingrepeater;
-    pingmap[cid].pingc++;
-    pingout++;
+    particlemap[cid].ptc += +particleconfig.particlerepeater;
+    particlemap[cid].ptc++;
+    ptout += +particleconfig.particlerepeater;
+    ptout++;
 
-    res.send(`pong recieved [${letter.correlationId}]`);
+    res.send(`particle recieved [${cid}]`);
 });
 
 // kill and rez
