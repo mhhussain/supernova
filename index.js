@@ -1,12 +1,16 @@
 let axios = require('axios');
 let e =  require('express');
 
-let configs = {
-    port: 7004,
-    pongurl: 'http://localhost:7004/pong'
-};
+let configs = require('./config');
 
 /// start up
+// health object
+let health = {
+    status: 'startup',
+    msg: ''
+};
+
+// q setup
 var qlock = 0;
 let q = [];
 
@@ -31,16 +35,18 @@ setInterval(() => {
 
     let qe = Array.from(q);
     q = [];
-
+    // release lock
     qlock--;
 
-    if (qe.length == 0) {
-        console.log('empty beat');
-        return;
-    }
-
-    for (var i = qe.shift(); i != undefined; i = qe.shift()) {
-        axios.post(i.to, { letter: i.letter });
+    // process q items
+    if (qe.length > 0) {
+        for (var i = qe.shift(); i != undefined; i = qe.shift()) {
+            axios.post(i.to, { letter: i.letter })
+                .catch((err) => {
+                    // need to log this
+                    console.log(err);
+                });
+        }
     }
 
 }, 1000);
@@ -51,17 +57,21 @@ let app = e();
 // uses
 app.use(e.json());
 
-app.get('/ping', (req, res) => {
-    console.log('ping received');
-    res.json('pong');
+// gets
+app.get('/health', (req, res) => {
+    res.json(health);
 });
 
-app.get('/ping/inout', (req, res) => {
-    res.json({pingin,pingout});
+app.get('/status/pingin', (req, res) => {
+    res.json(pingin);
+});
+
+app.get('/status/pingout', (req, res) => {
+    res.json(pingout);
 });
 
 app.get('/status/q', (req, res) => {
-    res.json({q:q.length});
+    res.json(q.length);
 });
 
 app.get('/status/cid/:correlationId', (req, res) => {
@@ -69,7 +79,7 @@ app.get('/status/cid/:correlationId', (req, res) => {
     res.json(pingmap[correlationId]);
 });
 
-app.get('/status', (req, res) => {
+app.get('/status/pingmap', (req, res) => {
     res.json(pingmap);
 });
 
@@ -96,9 +106,14 @@ app.post('/game/start', (req, res) => {
 });
 
 app.post('/pong', (req, res) => {
+    if (health.status != 'listening') {
+        res.error('bad health status');
+        return;
+    }
+
     let { letter } = req.body;
     if (!letter) {
-        res.send('missing pong object');
+        res.send('missing particle object');
         return;
     }
 
@@ -110,12 +125,17 @@ app.post('/pong', (req, res) => {
 
     // if ping is a fault
     if (letter.fault) {
-        res.send(`pong recieved [${cid}]`);
+        res.send(`particle recieved [${cid}]`);
         return;
     }
 
     // create pong response
     let pingconfig = pingmap[cid];
+
+    if (!pingconfig) {
+        res.error(`no pingmap for [${cid}]`);
+        return;
+    }
 
     let pingreturns = [];
 
@@ -161,4 +181,24 @@ app.post('/pong', (req, res) => {
     console.log(`pong recieved [${letter.correlationId}]`);
 });
 
-app.listen(configs.port, () => console.log(`listening on port ${configs.port}`));
+//app.listen(configs.port, () => console.log(`listening on port ${configs.port}`));
+
+// kill and rez
+app.post('/poison', (req, res) => {
+    health.status = 'poisoned';
+    health.msg = 'app poisoned';
+    
+    res.send('app poisoned');
+});
+
+app.post('/replenish', (req, res) => {
+    health.status = 'listening';
+    health.msg = `listening on port [${configs.port}]`;
+    
+    res.send('app replenished');
+})
+
+app.listen(configs.port, () => { 
+    health.status = 'listening';
+    health.msg = `listening on port [${configs.port}]`;
+});
