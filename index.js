@@ -44,7 +44,7 @@ setInterval(() => {
             axios.post(i.to, { letter: i.letter })
                 .catch((err) => {
                     // need to log this
-                    console.log(err);
+                    console.log('letter failed to send');
                 });
         }
     }
@@ -79,35 +79,53 @@ app.get('/status/cid/:correlationId', (req, res) => {
     res.json(pingmap[correlationId]);
 });
 
-app.get('/status/pingmap', (req, res) => {
+app.get('/pingmap', (req, res) => {
     res.json(pingmap);
 });
 
-app.post('/game/start', (req, res) => {
-    // let { gameObj } = req.body;
-    let correlationId = 'aa0000a0-0000-00a0-000a-0000a00000a0';
+// entry point
+app.post('/pingmap/add', (req, res) => {
+    let { particleInfo } = req.body;
+    if (!particleInfo) {
+        res.status(400).send(new Error('contract missing: [particleInfo]'));
+        return;
+    }
 
-    pingmap[correlationId] = {
-        endpoint: 'http://localhost:4007/ping',
+console.log(particleInfo);
+
+    pingmap[particleInfo.correlationId] = {
+        endpoint: particleInfo.endpoint,
         bouncec: 0,
-        pingc: 1, // put this in the then block
         pongc: 0,
-        pingrepeater: 5
+        pingrepeater: particleInfo.pingrepeater
     };
 
-    axios.post('http://localhost:4007/ping', {
+    var success = true;
+
+    axios.post(particleInfo.endpoint, {
         letter: {
-            correlationId,
-            back: configs.pongurl            
+            correlationId: particleInfo.correlationId,
+            back: configs.pongurl
         }
+    }).catch((err) => {
+        console.log('jfeijfeoieifefie');
+        pingmap[particleInfo] = null;
+        success = false;
+        return;
+    }).finally(() => {
+        if (success) {
+            res.send('ping created');
+        } else {
+            res.status(400).send(new Error('failed to create ping'));
+        }
+        return;
     });
 
-    res.send('done');
 });
 
 app.post('/pong', (req, res) => {
     if (health.status != 'listening') {
-        res.error('bad health status');
+        res.status(503).send('bad health status');
         return;
     }
 
@@ -118,6 +136,9 @@ app.post('/pong', (req, res) => {
     }
 
     let cid = letter.correlationId;
+
+    // ping counter
+    pingin++;
 
     // update pingmap
     pingmap[cid].bouncec++;
@@ -133,7 +154,7 @@ app.post('/pong', (req, res) => {
     let pingconfig = pingmap[cid];
 
     if (!pingconfig) {
-        res.error(`no pingmap for [${cid}]`);
+        res.status(400).send(new Error(`no pingmap for [${cid}]`));
         return;
     }
 
@@ -177,11 +198,7 @@ app.post('/pong', (req, res) => {
     pingout++;
 
     res.send(`pong recieved [${letter.correlationId}]`);
-    
-    console.log(`pong recieved [${letter.correlationId}]`);
 });
-
-//app.listen(configs.port, () => console.log(`listening on port ${configs.port}`));
 
 // kill and rez
 app.post('/poison', (req, res) => {
