@@ -10,47 +10,10 @@ let health = {
     msg: ''
 };
 
-// q setup
-var qlock = 0;
-let q = [];
-
 // particlemap
 let particlemap = {};
 let ptout = 0;
 let ptin = 0;
-
-// create consumer
-setInterval(() => {
-    // retrieve lock
-    while (true) {
-        if (qlock == 0) {
-            qlock++;
-            break;
-        } else if (qlock == 1) {
-            continue;
-        } else {
-            throw 'deadlock';
-        }
-    }
-
-    let qe = Array.from(q);
-    q = [];
-    // release lock
-    qlock--;
-
-    // process q items
-    if (qe.length > 0) {
-        for (var i = qe.shift(); i != undefined; i = qe.shift()) {
-            axios.post(i.to, { particle: i.particle })
-                .catch((err) => {
-                    // need to log this
-                    console.log('letter failed to send');
-                });
-        }
-    }
-
-}, 1000);
-
 
 let app = e();
 
@@ -62,16 +25,22 @@ app.get('/health', (req, res) => {
     res.json(health);
 });
 
+app.get('/requestmap', (req, res) =>  {
+    res.json({
+        pong: {
+            health: 'pong',
+            success: '/pong/s',
+            fail: '/pong/f',
+        }
+    })
+});
+
 app.get('/status/ptin', (req, res) => {
     res.json(ptin);
 });
 
 app.get('/status/ptout', (req, res) => {
     res.json(ptout);
-});
-
-app.get('/status/q', (req, res) => {
-    res.json(q.length);
 });
 
 app.get('/status/cid/:correlationId', (req, res) => {
@@ -87,7 +56,7 @@ app.get('/particlemap', (req, res) => {
 app.post('/particlemap/add', (req, res) => {
     let { particleInfo } = req.body;
     if (!particleInfo) {
-        res.status(400).send(new Error('contract missing: [particleInfo]'));
+        res.status(400).json(new Error('contract missing: [particleInfo]'));
         return;
     }
 
@@ -100,10 +69,16 @@ app.post('/particlemap/add', (req, res) => {
 
     var success = true;
 
-    axios.post(particleInfo.endpoint, {
+    axios.post(configs.particleaccelerator, {
         particle: {
-            correlationId: particleInfo.correlationId,
-            back: configs.novaurl
+            endpoint: particleInfo.endpoint,
+            return: {
+                success: `${configs.novaurl}/pong/s`,
+                fail: `${configs.novaurl}/pong/f`
+            },
+            data: {
+                correlationId: particleInfo.correlationId
+            }
         }
     }).catch((err) => {
         particlemap[particleInfo] = null;
@@ -111,28 +86,27 @@ app.post('/particlemap/add', (req, res) => {
         return;
     }).finally(() => {
         if (success) {
-            res.send('particle fired');
+            res.json('particle.fired');
         } else {
-            res.status(400).send(new Error('failed to create particle'));
+            res.status(400).json(new Error('failed to create particle'));
         }
         return;
     });
-
 });
 
-app.post('/pong', (req, res) => {
+app.post('/pong/s', (req, res) => {
     if (health.status != 'listening') {
-        res.status(503).send('bad health status');
+        res.status(503).json('bad health status');
         return;
     }
 
-    let { particle } = req.body;
-    if (!particle) {
-        res.send('missing particle');
+    let { rdata } = req.body;
+    if (!rdata) {
+        res.json('particle.missing');
         return;
     }
 
-    let cid = particle.correlationId;
+    let cid = rdata.correlationId;
 
     // particle counter
     ptin++;
@@ -142,8 +116,8 @@ app.post('/pong', (req, res) => {
     particlemap[cid].ptc++;
 
     // if particle is a fault
-    if (particle.fault) {
-        res.send(`particle recieved [${cid}]`);
+    if (rdata.fault) {
+        res.json(`particle.recieved [${cid}]`);
         return;
     }
 
@@ -151,51 +125,55 @@ app.post('/pong', (req, res) => {
     let particleconfig = particlemap[cid];
 
     if (!particleconfig) {
-        res.status(400).send(new Error(`no particlemap for [${cid}]`));
+        res.status(400).json(new Error(`no particlemap for [${cid}]`));
         return;
     }
 
-    let particlereturns = [];
+    res.json(`particle.received [${cid}]`);
 
     if (particleconfig.particlerepeater) {
         for (var i = 0; i < particleconfig.particlerepeater; i++) {
-            particlereturns.push({
-                to: particleconfig.endpoint,
-                "particle": {
-                    correlationId: cid,
-                    back: configs.novaurl,
-                    fault: true
+            axios.post(configs.particleaccelerator, {
+                particle: {
+                    endpoint: particleconfig.endpoint,
+                    return: {
+                        success: `${configs.novaurl}/pong/s`,
+                        fail: `${configs.novaurl}/pong/f`,
+                    },
+                    data: {
+                        correlationId: cid,
+                        fault: true
+                    }
                 }
             });
         }
     }
 
-    particlereturns.push({
-        to: particleconfig.endpoint,
-        "particle": {
-            correlationId: cid,
-            back: configs.novaurl,
-            fault: false
+    axios.post(configs.particleaccelerator, {
+        particle: {
+            endpoint: particleconfig.endpoint,
+            return: {
+                success: `${configs.novaurl}/pong/s`,
+                fail: `${configs.novaurl}/pong/f`,
+            },
+            data: {
+                correlationId: cid,
+                fault: false
+            }
         }
     });
-
-    // retrieve lock
-    while (true) {
-        if (qlock == 0) {
-            qlock++;
-            break;
-        }
-    }
-    q = q.concat(particlereturns);
-    // release lock
-    qlock--;
 
     particlemap[cid].ptc += +particleconfig.particlerepeater;
     particlemap[cid].ptc++;
     ptout += +particleconfig.particlerepeater;
     ptout++;
 
-    res.send(`particle recieved [${cid}]`);
+    return;
+});
+
+app.post('/pong/f', (req, res) => {
+    // remove particle from map
+    res.json('failure.received');
 });
 
 // kill and rez
@@ -203,14 +181,14 @@ app.post('/poison', (req, res) => {
     health.status = 'poisoned';
     health.msg = 'app poisoned';
     
-    res.send('app poisoned');
+    res.json('app.poison');
 });
 
 app.post('/replenish', (req, res) => {
     health.status = 'listening';
     health.msg = `listening on port [${configs.port}]`;
     
-    res.send('app replenished');
+    res.json('app.replenish');
 })
 
 app.listen(configs.port, () => { 
