@@ -2,14 +2,9 @@ let axios = require('axios');
 let e =  require('express');
 
 let configs = require('./config');
+let health = require('./health');
 
 /// start up
-// health object
-let health = {
-    status: 'startup',
-    msg: ''
-};
-
 // particlemap
 let particlemap = {};
 let ptout = 0;
@@ -20,10 +15,7 @@ let app = e();
 // uses
 app.use(e.json());
 
-// gets
-app.get('/health', (req, res) => {
-    res.json(health);
-});
+let h = new health(app);
 
 app.get('/requestmap', (req, res) =>  {
     res.json({
@@ -95,7 +87,7 @@ app.post('/particlemap/add', (req, res) => {
 });
 
 app.post('/pong/s', (req, res) => {
-    if (health.status != 'listening') {
+    if (h.status() != 'listening') {
         res.status(503).json('bad health status');
         return;
     }
@@ -176,22 +168,9 @@ app.post('/pong/f', (req, res) => {
     res.json('failure.received');
 });
 
-// kill and rez
-app.post('/poison', (req, res) => {
-    health.status = 'poisoned';
-    health.msg = 'app poisoned';
-    
-    res.json('app.poison');
-});
-
-app.post('/replenish', (req, res) => {
-    health.status = 'listening';
-    health.msg = `listening on port [${configs.port}]`;
-    
-    res.json('app.replenish');
-})
-
 app.listen(configs.port, () => { 
-    health.status = 'listening';
-    health.msg = `listening on port [${configs.port}]`;
+    h.updateStatus({
+        status: 'listening',
+        msg: `listening on port [${configs.port}]`
+    });
 });
