@@ -1,7 +1,7 @@
 let configs = {
-    port: 7004,
-    novaurl: 'http://localhost:7004',
-    particleaccelerator: 'http://localhost:7005/outbox'
+    port: 80,
+    novaurl: 'http://sunova',
+    particleaccelerator: 'http://partacc/outbox'
 };
 
 module.exports = configs;

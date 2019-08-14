@@ -27,6 +27,14 @@ function supernova(h, configs, app) {
     app.get('/particlemap', (req, res) => {
         res.json(this.particlemap);
     });
+
+    app.post('/reset', (req, res) => {
+        this.ptin = 0;
+        this.ptout = 0;
+        this.errors = 0;
+        this.particlemap = {};
+        res.json(h.status());
+    });
     
     // entry point
     app.post('/particlemap/add', (req, res) => {

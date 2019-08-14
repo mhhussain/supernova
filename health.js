@@ -2,6 +2,7 @@
 function health(app) {
 
     this.h = {
+        name: 'supernova',
         status: 'startup',
         msg: ''
     };
