@@ -54,18 +54,19 @@ function supernova(h, configs, app) {
     
         var success = true;
     
-        axios.post(configs.particleaccelerator, {
-            particle: {
-                endpoint: particleInfo.endpoint,
-                return: {
-                    success: `${configs.novaurl}/pong/s`,
-                    fail: `${configs.novaurl}/pong/f`
-                },
-                data: {
-                    correlationId: particleInfo.correlationId
-                }
+
+        let particle  = JSON.stringify({
+            endpoint: particleInfo.endpoint,
+            return: {
+                success: `${configs.novaurl}/pong/s`,
+                fail: `${configs.novaurl}/pong/f`
+            },
+            data: {
+                correlationId: particleInfo.correlationId
             }
-        }).catch((err) => {
+        });
+
+        axios.post(configs.particleaccelerator, particle).catch((err) => {
             this.particlemap[particleInfo] = null;
             success = false;
             return;
