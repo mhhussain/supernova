@@ -85,8 +85,8 @@ function supernova(h, configs, app) {
             res.status(503).json('bad health status');
             return;
         }
-    
-        let { rdata } = req.body;
+
+        let rdata = req.body;
         if (!rdata) {
             res.json('particle.missing');
             return;
@@ -119,35 +119,33 @@ function supernova(h, configs, app) {
     
         if (particleconfig.particlerepeater) {
             for (var i = 0; i < particleconfig.particlerepeater; i++) {
-                axios.post(configs.particleaccelerator, {
-                    particle: {
-                        endpoint: particleconfig.endpoint,
-                        return: {
-                            success: `${configs.novaurl}/pong/s`,
-                            fail: `${configs.novaurl}/pong/f`,
-                        },
-                        data: {
-                            correlationId: cid,
-                            fault: true
-                        }
+                let p = JSON.stringify({
+                    endpoint: particleconfig.endpoint,
+                    return: {
+                        success: `${configs.novaurl}/pong/s`,
+                        fail: `${configs.novaurl}/pong/f`,
+                    },
+                    data: {
+                        correlationId: cid,
+                        fault: true
                     }
                 });
+                axios.post(configs.particleaccelerator, p);
             }
         }
-    
-        axios.post(configs.particleaccelerator, {
-            particle: {
-                endpoint: particleconfig.endpoint,
-                return: {
-                    success: `${configs.novaurl}/pong/s`,
-                    fail: `${configs.novaurl}/pong/f`,
-                },
-                data: {
-                    correlationId: cid,
-                    fault: false
-                }
+
+        let mp = JSON.stringify({
+            endpoint: particleconfig.endpoint,
+            return: {
+                success: `${configs.novaurl}/pong/s`,
+                fail: `${configs.novaurl}/pong/f`,
+            },
+            data: {
+                correlationId: cid,
+                fault: false
             }
         });
+        axios.post(configs.particleaccelerator, mp);
     
         this.particlemap[cid].ptc += +particleconfig.particlerepeater;
         this.particlemap[cid].ptc++;
@@ -164,7 +162,7 @@ function supernova(h, configs, app) {
             return;
         }
     
-        let { rdata } = req.body;
+        let rdata = req.body;
         if (!rdata) {
             res.json('particle.missing');
             return;
