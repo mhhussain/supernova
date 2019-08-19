@@ -1,1 +1,1 @@
-curl -d '{"particleInfo":{"correlationId":"5edd7d1d-ca05-4786-88b5-a26c5e4b9749","endpoint":"http://blackhole/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost/particlemap/add
+curl -d '{"particleInfo":{"correlationId":"77fc1da1-7fea-4f5b-b311-131f2916f8bd","endpoint":"http://localhost:92/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost:90/particlemap/add

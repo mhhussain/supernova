@@ -2,7 +2,7 @@ let tk = require('terminal-kit').terminal;
 let axios = require('axios');
 
 let configs = {
-    sunova: 'http://sunova',
+    sunova: 'http://localhost',
     partacc: 'http://partacc',
     blackhole: 'http://blackhole'
 }
@@ -13,6 +13,7 @@ let sunovain = 0;
 let sunovaerror = 0;
 
 let partacchealth = '';
+let partacccount = 0;
 
 let blackholehealth = '';
 let blackholevain = 0;
@@ -36,6 +37,9 @@ setInterval(() => {
     axios.get(`${configs.partacc}/health`).then((res) => {
         partacchealth = res.data.status;
     }).catch((err) => { partacchealth = 'dead'; });
+    axios.get(`${configs.partacc}/status/rcount`).then((res) => {
+        partacccount = res.data;
+    }).catch((err) => {});
 
     // blackhole
     axios.get(`${configs.blackhole}/health`).then((res) => {
@@ -52,7 +56,7 @@ setInterval(() => {
 
     tk.moveTo(2, 2, '*** supernova -> blackhole monitor ***\n');
     tk.moveTo(2, 3, `sunova: [${sunovain}/${sunovaout}/${sunovaerror}] - ${sunovahealth}`);
-    tk.moveTo(2, 4, `partacc: ${partacchealth}`);
+    tk.moveTo(2, 4, `partacc: ${partacchealth} - ${partacccount}`);
     tk.moveTo(2, 5, `blackhole: [${blackholevain}] - ${blackholehealth}`);
 
 
