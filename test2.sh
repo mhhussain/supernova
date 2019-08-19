@@ -1,4 +1,4 @@
-curl -d '{"particleInfo":{"correlationId":"f765cd77-8331-4ecc-a918-7c695d63dc45","endpoint":"http://blackhole/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost/particlemap/add
+curl -d '{"particleInfo":{"correlationId":"77fc1da1-7fea-4f5b-b311-131f2916f8bd","endpoint":"http://localhost:92/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost:90/particlemap/add
 curl -d '{"particleInfo":{"correlationId":"42989d03-86d8-4431-9cf9-70a305bd878b","endpoint":"http://blackhole/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost/particlemap/add
 curl -d '{"particleInfo":{"correlationId":"98cea188-e0ae-464f-ad1c-08a00c24a2a3","endpoint":"http://blackhole/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost/particlemap/add
 curl -d '{"particleInfo":{"correlationId":"64ff9dac-5367-4f3a-87e9-dcb2ca6235ac","endpoint":"http://blackhole/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost/particlemap/add
