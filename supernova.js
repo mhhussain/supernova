@@ -1,11 +1,12 @@
 let axios = require('axios');
+let mongoc = require('mongodb').MongoClient;
 
 function supernova(h, configs, app) {
 
     this.ptin = 0;
     this.ptout = 0;
     this.errors = 0;
-    this.particlemap = {};
+    this.mongoConfig = configs.mongo;
     
     app.get('/status/ptin', (req, res) => {
         res.json(this.ptin);
@@ -43,40 +44,60 @@ function supernova(h, configs, app) {
             res.status(400).json(new Error('contract missing: [particleInfo]'));
             return;
         }
-    
-        this.particlemap[particleInfo.correlationId] = {
+
+        let p = {
+            correlationId: particleInfo.correlationId,
             endpoint: particleInfo.endpoint,
             bouncec: 0,
             ptc: 0,
             errors: 0,
             particlerepeater: particleInfo.particlerepeater
         };
-    
-        var success = true;
-    
 
-        let particle  = JSON.stringify({
-            endpoint: particleInfo.endpoint,
-            return: {
-                success: `${configs.novaurl}/pong/s`,
-                fail: `${configs.novaurl}/pong/f`
-            },
-            data: {
-                correlationId: particleInfo.correlationId
+        mongoc.connect(this.mongoConfig.url, (err, db) => {
+            if (err) {
+                console.log(err);
+                res.json('particle.misfire');
+                return;
             }
-        });
+            let dbo = db.db(this.mongoConfig.db);
+            dbo.collection('particles').insertOne(p, (err, mongores) => {
+                if (err) {
+                    console.log(err);
+                    res.json('particle.misfire');
+                    return;
+                }
 
-        axios.post(configs.particleaccelerator, particle).catch((err) => {
-            this.particlemap[particleInfo] = null;
-            success = false;
-            return;
-        }).finally(() => {
-            if (success) {
-                res.json('particle.fired');
-            } else {
-                res.status(400).json(new Error('failed to create particle'));
-            }
-            return;
+                db.close();
+
+                var success = true;
+
+                let particle  = JSON.stringify({
+                    endpoint: particleInfo.endpoint,
+                    return: {
+                        success: `${configs.novaurl}/pong/s`,
+                        fail: `${configs.novaurl}/pong/f`
+                    },
+                    data: {
+                        correlationId: particleInfo.correlationId
+                    }
+                });
+
+                axios.post(configs.particleaccelerator, particle).catch((err) => {
+                    // need to delete particle from mongo here
+                    // this.particlemap[particleInfo] = null;
+                    success = false;
+                    return;
+                }).finally(() => {
+                    if (success) {
+                        res.json('particle.fired');
+                    } else {
+                        res.status(400).json(new Error('failed to create particle'));
+                    }
+                    return;
+                });
+
+            });
         });
     });
     
@@ -91,35 +112,57 @@ function supernova(h, configs, app) {
             res.json('particle.missing');
             return;
         }
-    
+
         let cid = rdata.correlationId;
     
         // particle counter
         this.ptin++;
-    
-        // update particlemap
-        this.particlemap[cid].bouncec++;
-        this.particlemap[cid].ptc++;
-    
+
         // if particle is a fault
         if (rdata.fault) {
             res.json(`particle.recieved [${cid}]`);
             return;
         }
-    
-        // create particle response
-        let particleconfig = this.particlemap[cid];
-    
-        if (!particleconfig) {
-            res.status(400).json(new Error(`no particlemap for [${cid}]`));
-            return;
-        }
-    
+        
+        // there's a reason for this...
         res.json(`particle.received [${cid}]`);
-    
-        if (particleconfig.particlerepeater) {
-            for (var i = 0; i < particleconfig.particlerepeater; i++) {
-                let p = JSON.stringify({
+
+        // update particlemap
+        mongoc.connect(this.mongoConfig.url, (err, db) => {
+            if (err) {
+                console.log(err);
+                return;
+            }
+            let dbo = db.db(this.mongoConfig.db);
+            dbo.collection('particles').findOne({ correlationId: cid }, (err, result) => {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                result.bouncec++;
+                result.ptc++;
+
+                // create particle response
+                let particleconfig = result;
+            
+                if (particleconfig.particlerepeater) {
+                    for (var i = 0; i < particleconfig.particlerepeater; i++) {
+                        let p = JSON.stringify({
+                            endpoint: particleconfig.endpoint,
+                            return: {
+                                success: `${configs.novaurl}/pong/s`,
+                                fail: `${configs.novaurl}/pong/f`,
+                            },
+                            data: {
+                                correlationId: cid,
+                                fault: true
+                            }
+                        });
+                        axios.post(configs.particleaccelerator, p);
+                    }
+                }
+
+                let mp = JSON.stringify({
                     endpoint: particleconfig.endpoint,
                     return: {
                         success: `${configs.novaurl}/pong/s`,
@@ -127,30 +170,26 @@ function supernova(h, configs, app) {
                     },
                     data: {
                         correlationId: cid,
-                        fault: true
+                        fault: false
                     }
                 });
-                axios.post(configs.particleaccelerator, p);
-            }
-        }
+                axios.post(configs.particleaccelerator, mp);
+            
+                result.ptc += +particleconfig.particlerepeater;
+                result.ptc++;
+                this.ptout += +particleconfig.particlerepeater;
+                this.ptout++;
+                
+                let newrec = { $set: result };
 
-        let mp = JSON.stringify({
-            endpoint: particleconfig.endpoint,
-            return: {
-                success: `${configs.novaurl}/pong/s`,
-                fail: `${configs.novaurl}/pong/f`,
-            },
-            data: {
-                correlationId: cid,
-                fault: false
-            }
+                dbo.collection('particles').updateOne({ correlationId: cid }, newrec, (err, res) => {
+                    if (err) {
+                        throw err;
+                    }
+                    db.close();
+                });
+            });
         });
-        axios.post(configs.particleaccelerator, mp);
-    
-        this.particlemap[cid].ptc += +particleconfig.particlerepeater;
-        this.particlemap[cid].ptc++;
-        this.ptout += +particleconfig.particlerepeater;
-        this.ptout++;
     
         return;
     });
@@ -169,9 +208,6 @@ function supernova(h, configs, app) {
         }
     
         this.errors++;
-
-        let cid = rdata.correlationId;
-        this.particlemap[cid].errors++;
 
         res.json('failure.received');
     });
