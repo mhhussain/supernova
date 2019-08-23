@@ -20,20 +20,11 @@ function supernova(h, configs, app) {
         res.json(this.errors);
     });
     
-    app.get('/status/cid/:correlationId', (req, res) => {
-        let { correlationId } = req.params;
-        res.json(this.particlemap[correlationId]);
-    });
-    
-    app.get('/particlemap', (req, res) => {
-        res.json(this.particlemap);
-    });
-
     app.post('/reset', (req, res) => {
         this.ptin = 0;
         this.ptout = 0;
         this.errors = 0;
-        this.particlemap = {};
+        // this.particlemap = {}; // this needs to be figured out
         res.json(h.status());
     });
     
