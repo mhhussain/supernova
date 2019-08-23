@@ -6,7 +6,6 @@ let configs = {
         url: 'mongodb://mongo/',
         db: 'particleMap'
     }
->>>>>>> master
 };
 
 module.exports = configs;
