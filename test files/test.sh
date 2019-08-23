@@ -1,0 +1,1 @@
+curl -d '{"particleInfo":{"correlationId":"77fc1da1-7fea-4f5b-b311-131f2916f8bd","endpoint":"http://localhost:92/ping","particlerepeater":"5"}}' -H 'Content-type: application/json' -X POST localhost:90/particlemap/add
