@@ -52,7 +52,7 @@ function supernova(h, configs, app) {
                 return;
             }
             let dbo = db.db(this.mongoConfig.db);
-            dbo.collection('particles').insertOne(p, (err, mongores) => {
+            dbo.collection('particles').insertOne(p, (err, insertres) => {
                 if (err) {
                     console.log(err);
                     res.json('particle.misfire');
@@ -105,7 +105,7 @@ function supernova(h, configs, app) {
         }
 
         let cid = rdata.correlationId;
-    
+
         // particle counter
         this.ptin++;
 
