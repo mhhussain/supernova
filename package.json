@@ -19,7 +19,7 @@
   "homepage": "https://github.com/mhhussain/supernova#readme",
   "dependencies": {
     "axios": "^0.19.0",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "mongodb": "^3.3.0",
     "terminal-kit": "^1.31.0"
   }
